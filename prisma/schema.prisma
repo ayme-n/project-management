@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+enum ProjectRole {
+  ADMIN
+  MEMBER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  ownedProjects  Project[]       // projects this user owns
+  memberships    ProjectMember[] // projects this user is a member of
+  createdCards   Card[]          // cards this user created
+  assignedCards  CardAssignee[]  // cards assigned to this user
+  comments       Comment[]       // comments this user wrote
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Owner relation
+  ownerId Int
+  owner   User @relation(fields: [ownerId], references: [id])
+
+  // Relations
+  members ProjectMember[]
+  lists   List[]
+  labels  Label[]
+}
+
+model ProjectMember {
+  id       Int         @id @default(autoincrement())
+  role     ProjectRole
+  joinedAt DateTime    @default(now())
+
+  // Relations
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // A user can only be a member of a project once
+  @@unique([projectId, userId])
+}
+
+model List {
+  id        Int      @id @default(autoincrement())
+  name      String
+  position  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cards     Card[]
+}
+
+model Card {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  position    Int
+  priority    Priority  @default(LOW)
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  listId    Int
+  list      List @relation(fields: [listId], references: [id], onDelete: Cascade)
+  creatorId Int
+  creator   User @relation(fields: [creatorId], references: [id])
+
+  comments  Comment[]
+  labels    CardLabel[]
+  assignees CardAssignee[]
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  cardId   Int
+  card     Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  authorId Int
+  author   User @relation(fields: [authorId], references: [id])
+}
+
+model Label {
+  id        Int      @id @default(autoincrement())
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+
+  // Relations
+  projectId Int
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cards     CardLabel[]
+}
+
+model CardLabel {
+  // Relations
+  cardId  Int
+  card    Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  labelId Int
+  label   Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([cardId, labelId])
+}
+
+model CardAssignee {
+  assignedAt DateTime @default(now())
+
+  // Relations
+  cardId Int
+  card   Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([cardId, userId])
+}
